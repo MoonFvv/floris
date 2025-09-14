@@ -59,6 +59,7 @@ class WebGLApp {
         this.isAnimating = false;
         this.lastScrollTime = 0;
         this.videosUnlocked = false;
+        this.hasDeviceOrientation = false; // Houdt bij of we de gyroscoop gebruiken
 
         this.init();
     }
@@ -123,7 +124,6 @@ class WebGLApp {
             video.playsInline = true;
             video.crossOrigin = 'anonymous';
 
-            // GEWIJZIGD: We voegen <source> elementen toe voor elk videoformaat
             const sourceWebm = document.createElement('source');
             sourceWebm.src = project.videoSrc.webm;
             sourceWebm.type = 'video/webm';
@@ -233,12 +233,23 @@ class WebGLApp {
     }
     
     addEventListeners() {
+        // Muis-input voor desktop
+        window.addEventListener('mousemove', this.handleMouseMove.bind(this));
+        
+        // Gyroscoop-input voor mobiele apparaten
+        if (window.DeviceOrientationEvent) {
+             window.addEventListener('deviceorientation', this.handleDeviceOrientation.bind(this));
+        }
+
+        // Scroll en Touch-events
         window.addEventListener('wheel', this.handleScroll.bind(this), { passive: false });
         let touchStartY = 0;
-        window.addEventListener('touchstart', (e) => { touchStartY = e.touches[0].clientY; }, { passive: false });
+        window.addEventListener('touchstart', (e) => { 
+            this.unlockVideos(); // Ontgrendel video's direct bij de eerste interactie
+            touchStartY = e.touches[0].clientY; 
+        }, { passive: true }); // passive: true voor betere scroll-performance
+        
         window.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            this.unlockVideos();
             const touchEndY = e.changedTouches[0].clientY;
             const deltaY = touchStartY - touchEndY;
             if (Math.abs(deltaY) > 50) { 
@@ -248,8 +259,8 @@ class WebGLApp {
                 this.lastScrollTime = now;
             }
         }, { passive: false });
-
-        window.addEventListener('mousemove', this.handleMouseMove.bind(this));
+        
+        // Algemene events
         window.addEventListener('resize', this.handleResize.bind(this));
         ui.menuHome.addEventListener('click', () => this.navigateTo(0));
         ui.menuAbout.addEventListener('click', () => this.navigateTo(projects.length - 1));
@@ -268,8 +279,24 @@ class WebGLApp {
     }
     
     handleMouseMove(e) {
+        // Gebruik de muis alleen als er geen gyroscoop is
+        if (this.hasDeviceOrientation) return; 
+
         this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
         this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    }
+    
+    handleDeviceOrientation(event) {
+        if (!this.hasDeviceOrientation) this.hasDeviceOrientation = true;
+
+        // Leest de gyroscoop data (links/rechts en voor/achter kanteling)
+        const gamma = event.gamma; // -90 tot 90
+        const beta = event.beta;   // -180 tot 180
+
+        // Normaliseer en beperk de waarden voor een subtiel effect
+        this.mouse.x = Math.max(-1, Math.min(1, gamma / 30));
+        // De -45 is een offset om een comfortabele 'vasthoud' positie als neutraal te zien
+        this.mouse.y = Math.max(-1, Math.min(1, (beta - 45) / 30));
     }
 
     handleResize() {

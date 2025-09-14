@@ -7,7 +7,11 @@
     --font-mono: 'Roboto Mono', monospace;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+}
 
 html, body {
     background-color: var(--bg-color);
@@ -17,6 +21,8 @@ html, body {
     width: 100vw;
     overflow: hidden; /* Geen scroll mogelijk */
     cursor: default;
+    /* Voorkomt 'pull-to-refresh' en andere scroll-gerelateerde browseracties op mobiel */
+    overscroll-behavior: none; 
 }
 
 #webgl-canvas {
@@ -46,7 +52,6 @@ html, body {
 .project-info {
     transform: translateY(20px); 
     opacity: 0;
-    /* Aangepast: duur verlengd naar 2.5s en delay verwijderd voor een soepeler effect */
     transition: transform 2.5s ease, opacity 2.5s ease;
     text-align: left;
 }
@@ -89,6 +94,9 @@ html, body {
     cursor: pointer;
     opacity: 0.7;
     transition: opacity 0.3s ease;
+    /* Maakt het tikgebied groter op mobiel */
+    padding: 0.5rem;
+    margin: -0.5rem; /* Compenseert voor de extra padding */
 }
 .menu-container button:hover { opacity: 1; }
 
@@ -132,4 +140,32 @@ html, body {
 .project-counter,
 .menu-container {
     will-change: transform, opacity;
+}
+
+/* --- OPTIMALISATIES VOOR MOBIEL --- */
+@media (max-width: 768px) {
+    .ui-overlay {
+        /* Minder padding op kleine schermen */
+        padding: 1.5rem;
+    }
+
+    #project-title {
+        /* Iets minder negatieve letter-spacing voor betere leesbaarheid */
+        letter-spacing: -2px;
+    }
+
+    #project-category {
+        font-size: 0.9rem;
+        margin-top: 1rem;
+    }
+
+    .menu-container {
+        top: 1.5rem; 
+        right: 1.5rem;
+        gap: 0.8rem; /* Knoppen dichter bij elkaar */
+    }
+
+    #loader-percentage {
+        font-size: 3.5rem; /* Loader tekst iets kleiner */
+    }
 }
