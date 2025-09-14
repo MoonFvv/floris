@@ -7,11 +7,7 @@
     --font-mono: 'Roboto Mono', monospace;
 }
 
-* { 
-    box-sizing: border-box; 
-    margin: 0; 
-    padding: 0; 
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
     background-color: var(--bg-color);
@@ -21,8 +17,6 @@ html, body {
     width: 100vw;
     overflow: hidden; /* Geen scroll mogelijk */
     cursor: default;
-    /* Voorkomt 'pull-to-refresh' en andere scroll-gerelateerde browseracties op mobiel */
-    overscroll-behavior: none; 
 }
 
 #webgl-canvas {
@@ -44,8 +38,9 @@ html, body {
     pointer-events: none;
     padding: 3rem;
     display: flex;
-    flex-direction: column;
     justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
 }
 
 /* Project Info (linksboven) */
@@ -54,6 +49,7 @@ html, body {
     opacity: 0;
     transition: transform 2.5s ease, opacity 2.5s ease;
     text-align: left;
+    width: 100%;
 }
 .project-info.is-visible { 
     transform: translateY(0); 
@@ -75,6 +71,18 @@ html, body {
     line-height: 1.5; 
 }
 
+/* --- AANGEPAST: Styling voor de links verwijderd --- */
+#project-category a {
+    color: inherit; /* Neemt de kleur van de parent over */
+    text-decoration: none; /* Geen onderstreping standaard */
+    transition: text-decoration 0.3s ease;
+}
+
+#project-category a:hover {
+    text-decoration: underline; /* Onderstreping alleen bij hover voor herkenbaarheid */
+}
+
+
 /* Menu (rechtsboven) */
 .menu-container {
     position: fixed;
@@ -94,15 +102,97 @@ html, body {
     cursor: pointer;
     opacity: 0.7;
     transition: opacity 0.3s ease;
-    /* Maakt het tikgebied groter op mobiel */
-    padding: 0.5rem;
-    margin: -0.5rem; /* Compenseert voor de extra padding */
 }
 .menu-container button:hover { opacity: 1; }
 
+/* Styling voor Command Console */
+
+.console-trigger {
+    position: fixed;
+    bottom: 3rem;
+    left: 3rem;
+    pointer-events: auto;
+}
+
+.console-trigger button {
+    font-family: var(--font-mono); 
+    font-weight: 700; 
+    font-size: 1rem;
+    color: var(--text-color);
+    background: none; 
+    border: none;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+}
+
+.console-trigger button:hover {
+    opacity: 1;
+}
+
+.command-console {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(10, 10, 10, 0.8);
+    backdrop-filter: blur(10px);
+    z-index: 200;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
+.command-console.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.console-content {
+    width: clamp(300px, 90%, 600px);
+    text-align: left;
+}
+
+.console-prompt {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 0.5rem;
+}
+
+#console-input {
+    font-family: var(--font-mono);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-color);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+    width: 100%;
+    outline: none;
+    padding-bottom: 0.5rem;
+}
+
+#console-input:focus {
+    border-bottom-color: var(--text-color);
+}
+
+.console-hint {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 1rem;
+}
+
 /* Teller (rechtsonder) */
 .project-counter {
-    align-self: flex-end;
+    position: fixed;
+    bottom: 3rem;
+    right: 3rem;
     font-family: var(--font-mono);
     font-size: 1rem;
     font-weight: 700;
@@ -138,34 +228,7 @@ html, body {
 
 .project-info,
 .project-counter,
-.menu-container {
+.menu-container,
+.console-trigger {
     will-change: transform, opacity;
-}
-
-/* --- OPTIMALISATIES VOOR MOBIEL --- */
-@media (max-width: 768px) {
-    .ui-overlay {
-        /* Minder padding op kleine schermen */
-        padding: 1.5rem;
-    }
-
-    #project-title {
-        /* Iets minder negatieve letter-spacing voor betere leesbaarheid */
-        letter-spacing: -2px;
-    }
-
-    #project-category {
-        font-size: 0.9rem;
-        margin-top: 1rem;
-    }
-
-    .menu-container {
-        top: 1.5rem; 
-        right: 1.5rem;
-        gap: 0.8rem; /* Knoppen dichter bij elkaar */
-    }
-
-    #loader-percentage {
-        font-size: 3.5rem; /* Loader tekst iets kleiner */
-    }
 }
