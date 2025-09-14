@@ -22,7 +22,7 @@ const projects = [
     },
     {
         title: 'ABOUT & CONTACT',
-        category: 'Een creatieve developer met een passie voor immersive web experiences. Laten we samen iets bouwen. \n\n FlorisVroegh@icloud.com',
+        category: 'Floris Vroegh Videographer & Editor. \n\n FlorisVroegh@icloud.com',
         videoSrc: { webm: 'knockin.mp4', mp4: 'knockin.mp4' }
     }
 ];
