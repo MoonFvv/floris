@@ -1,0 +1,135 @@
+/* --- DEFINITIVE THEME --- */
+
+:root {
+    --text-color: #ffffff;
+    --bg-color: #111111;
+    --font-headline: 'Inter', sans-serif;
+    --font-mono: 'Roboto Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-headline);
+    height: 100vh; 
+    width: 100vw;
+    overflow: hidden; /* Geen scroll mogelijk */
+    cursor: default;
+}
+
+#webgl-canvas {
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    outline: none;
+    cursor: grab;
+}
+#webgl-canvas:active { cursor: grabbing; }
+
+/* UI Overlay deelt de ruimte op */
+.ui-overlay {
+    position: fixed; 
+    top: 0; 
+    left: 0;
+    width: 100%; 
+    height: 100%;
+    pointer-events: none;
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Project Info (linksboven) */
+.project-info {
+    transform: translateY(20px); 
+    opacity: 0;
+    /* Aangepast: duur verlengd naar 2.5s en delay verwijderd voor een soepeler effect */
+    transition: transform 2.5s ease, opacity 2.5s ease;
+    text-align: left;
+}
+.project-info.is-visible { 
+    transform: translateY(0); 
+    opacity: 1; 
+}
+#project-title { 
+    font-size: clamp(3rem, 8vw, 7rem); 
+    font-weight: 900; 
+    line-height: 0.9; 
+    letter-spacing: -4px; 
+    text-transform: uppercase; 
+}
+#project-category { 
+    font-family: var(--font-mono); 
+    font-weight: 700; 
+    margin-top: 1.5rem; 
+    color: rgba(255, 255, 255, 0.7); 
+    max-width: 45ch; 
+    line-height: 1.5; 
+}
+
+/* Menu (rechtsboven) */
+.menu-container {
+    position: fixed;
+    top: 3rem; 
+    right: 3rem;
+    pointer-events: auto;
+    display: flex;
+    gap: 1.5rem;
+}
+.menu-container button {
+    font-family: var(--font-mono); 
+    font-weight: 700; 
+    font-size: 1rem;
+    color: var(--text-color);
+    background: none; 
+    border: none;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+}
+.menu-container button:hover { opacity: 1; }
+
+/* Teller (rechtsonder) */
+.project-counter {
+    align-self: flex-end;
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+/* Loader Styling */
+.loader {
+    position: fixed; 
+    top: 0; 
+    left: 0;
+    width: 100%; 
+    height: 100%;
+    background: var(--bg-color);
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+    z-index: 100;
+    transition: opacity 1.5s ease;
+}
+.loader-content { text-align: center; }
+#loader-percentage { 
+    font-family: var(--font-mono); 
+    font-size: 5rem; 
+    font-weight: 700; 
+}
+#loader-status { 
+    font-family: var(--font-mono); 
+    font-size: 1rem; 
+    color: rgba(255, 255, 255, 0.5); 
+    margin-top: 0.5rem; 
+    letter-spacing: 2px; 
+}
+
+.project-info,
+.project-counter,
+.menu-container {
+    will-change: transform, opacity;
+}
