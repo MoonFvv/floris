@@ -38,18 +38,17 @@ html, body {
     pointer-events: none;
     padding: 3rem;
     display: flex;
+    flex-direction: column;
     justify-content: space-between;
-    align-items: flex-start;
-    flex-wrap: wrap;
 }
 
 /* Project Info (linksboven) */
 .project-info {
     transform: translateY(20px); 
     opacity: 0;
-    transition: transform 2.5s ease, opacity 2.5s ease;
+    /* Transitie is hier minder relevant omdat GSAP het overneemt, maar we laten het staan als fallback */
+    transition: transform 1.5s ease, opacity 1.5s ease;
     text-align: left;
-    width: 100%;
 }
 .project-info.is-visible { 
     transform: translateY(0); 
@@ -70,18 +69,6 @@ html, body {
     max-width: 45ch; 
     line-height: 1.5; 
 }
-
-/* --- AANGEPAST: Styling voor de links verwijderd --- */
-#project-category a {
-    color: inherit; /* Neemt de kleur van de parent over */
-    text-decoration: none; /* Geen onderstreping standaard */
-    transition: text-decoration 0.3s ease;
-}
-
-#project-category a:hover {
-    text-decoration: underline; /* Onderstreping alleen bij hover voor herkenbaarheid */
-}
-
 
 /* Menu (rechtsboven) */
 .menu-container {
@@ -105,94 +92,9 @@ html, body {
 }
 .menu-container button:hover { opacity: 1; }
 
-/* Styling voor Command Console */
-
-.console-trigger {
-    position: fixed;
-    bottom: 3rem;
-    left: 3rem;
-    pointer-events: auto;
-}
-
-.console-trigger button {
-    font-family: var(--font-mono); 
-    font-weight: 700; 
-    font-size: 1rem;
-    color: var(--text-color);
-    background: none; 
-    border: none;
-    cursor: pointer;
-    opacity: 0.7;
-    transition: opacity 0.3s ease;
-}
-
-.console-trigger button:hover {
-    opacity: 1;
-}
-
-.command-console {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(10, 10, 10, 0.8);
-    backdrop-filter: blur(10px);
-    z-index: 200;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.4s ease;
-}
-
-.command-console.is-visible {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.console-content {
-    width: clamp(300px, 90%, 600px);
-    text-align: left;
-}
-
-.console-prompt {
-    font-family: var(--font-mono);
-    font-size: 1rem;
-    color: rgba(255, 255, 255, 0.7);
-    margin-bottom: 0.5rem;
-}
-
-#console-input {
-    font-family: var(--font-mono);
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--text-color);
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.5);
-    width: 100%;
-    outline: none;
-    padding-bottom: 0.5rem;
-}
-
-#console-input:focus {
-    border-bottom-color: var(--text-color);
-}
-
-.console-hint {
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.4);
-    margin-top: 1rem;
-}
-
 /* Teller (rechtsonder) */
 .project-counter {
-    position: fixed;
-    bottom: 3rem;
-    right: 3rem;
+    align-self: flex-end;
     font-family: var(--font-mono);
     font-size: 1rem;
     font-weight: 700;
@@ -228,7 +130,62 @@ html, body {
 
 .project-info,
 .project-counter,
-.menu-container,
-.console-trigger {
+.menu-container {
     will-change: transform, opacity;
+}
+
+/* --- SCROLL INDICATOR --- */
+.scroll-indicator {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.6);
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+    animation: subtle-bounce 2.5s ease-in-out infinite 1s;
+}
+
+.scroll-indicator.is-visible {
+    opacity: 1;
+}
+
+@keyframes subtle-bounce {
+    0%, 100% {
+        transform: translate(-50%, 0);
+    }
+    50% {
+        transform: translate(-50%, -10px);
+    }
+}
+
+
+/* --- MOBILE OPTIMIZATIONS --- */
+@media (max-width: 768px) {
+    .ui-overlay {
+        padding: 2rem; /* Iets meer ruimte dan 1.5, goede middenweg */
+    }
+
+    #project-title {
+        font-size: clamp(2.5rem, 10vw, 4rem);
+        letter-spacing: -2px;
+    }
+
+    #project-category {
+        margin-top: 1rem;
+        max-width: 90%; /* Zorgt voor nette afbreking */
+    }
+
+    .menu-container {
+        top: 2rem;
+        right: 2rem;
+        gap: 1rem;
+    }
+
+    .project-counter {
+        font-size: 0.9rem;
+    }
 }

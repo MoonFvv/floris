@@ -25,27 +25,18 @@
             <button id="menu-home">[ HOME ]</button>
             <button id="menu-about">[ ABOUT ]</button>
         </div>
-        
-        <!-- NIEUW: Knop om de console te openen (linksonder) -->
-        <div class="console-trigger">
-            <button id="console-open-btn">[ CMD ]</button>
-        </div>
 
         <!-- Teller staat rechtsonder -->
         <div class="project-counter">
             <span id="current-project">00</span> / <span id="total-projects">00</span>
         </div>
-    </div>
-    
-    <!-- NIEUW: De Command Console zelf (blijft verborgen tot activatie) -->
-    <div class="command-console" id="command-console">
-        <div class="console-content">
-            <label for="console-input" class="console-prompt">> FLORIS_VROEGH_OS:</label>
-            <input type="text" id="console-input" autocomplete="off" spellcheck="false">
-            <p class="console-hint">Type 'help' voor een lijst met commando's. [Esc] om te sluiten.</p>
+
+        <!-- NIEUW: Scroll animatie voor nieuwe bezoekers -->
+        <div id="scroll-indicator" class="scroll-indicator">
+            <span>SCROLL / SWIPE</span>
         </div>
     </div>
-
+    
     <div class="loader">
         <div class="loader-content">
             <div id="loader-percentage">0%</div>

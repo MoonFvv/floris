@@ -1,7 +1,8 @@
-// --- AANGEPAST: WAARDES VERSNELD ---
+// --- CONFIG & PROJECT DATA ---
 const MONOLITH_SPACING = 25;
 const CAMERA_DISTANCE = 10;
-const SCROLL_COOLDOWN = 1000; // Was 1800
+// GEWIJZIGD: Snellere cooldown
+const SCROLL_COOLDOWN = 1800;
 
 const projects = [
     { 
@@ -10,33 +11,18 @@ const projects = [
         videoSrc: { webm: 'knockin.mp4', mp4: 'knockin.mp4' }
     },
     { 
-        title: 'RECENT WORK', 
-        category: 'Een selectie van mijn nieuwste projecten op het gebied van videografie en motion design. <br>Van concept tot eindproduct.', 
-        videoSrc: { webm: 'knockin.mp4', mp4: 'knockin.mp4' } 
+        title: 'ALEC JUNGERIUS', 
+        category: 'WEB DESIGN', 
+        videoSrc: { webm: 'knockin.mp4', mp4: 'knockin.mp4' }
     },
     { 
         title: '3D RENDERS', 
         category: 'MOTION DESIGN', 
         videoSrc: { webm: 'knockin.mp4', mp4: 'knockin.mp4' }
     },
-    { 
-        title: 'ALEC JUNGERIUS', 
-        category: 'WEB DESIGN', 
-        videoSrc: { webm: 'alecwebsitehd.mov', mp4: 'alecwebsitehd.mov' }
-    },
     {
         title: 'ABOUT & CONTACT',
-        category: `Gepassioneerd door visuele verhalen en digitale ervaringen. Mijn vaardigheden omvatten:
-                   <br><br>
-                   Videografie & Editing <br>
-                   Web Design & Development <br>
-                   Motion Graphics
-                   <br><br>
-                   Laten we samenwerken. Neem contact op via e-mail of vind mij op:
-                   <br>
-                   <a href="mailto:FlorisVroegh@icloud.com">FlorisVroegh@icloud.com</a>
-                   <br>
-                   <a href="https://www.linkedin.com/in/jouwprofiel" target="_blank">LinkedIn</a> / <a href="https://www.instagram.com/jouwprofiel" target="_blank">Instagram</a>`,
+        category: 'Een creatieve developer met een passie voor immersive web experiences. Laten we samen iets bouwen. \n\n FlorisVroegh@icloud.com',
         videoSrc: { webm: 'knockin.mp4', mp4: 'knockin.mp4' }
     }
 ];
@@ -51,11 +37,7 @@ const ui = {
     loader: document.querySelector('.loader'),
     menuHome: document.getElementById('menu-home'),
     menuAbout: document.getElementById('menu-about'),
-    console: {
-        container: document.getElementById('command-console'),
-        input: document.getElementById('console-input'),
-        openBtn: document.getElementById('console-open-btn')
-    }
+    scrollIndicator: document.getElementById('scroll-indicator')
 };
 
 class WebGLApp {
@@ -73,14 +55,11 @@ class WebGLApp {
         this.allVideos = [];
         this.mouse = new THREE.Vector2();
         this.clock = new THREE.Clock();
-        this.stardust = null;
 
         this.currentIndex = -1;
         this.isAnimating = false;
         this.lastScrollTime = 0;
         this.videosUnlocked = false;
-        this.hasDeviceOrientation = false;
-        this.isConsoleOpen = false;
 
         this.init();
     }
@@ -89,7 +68,6 @@ class WebGLApp {
         this.setupRenderer();
         this.setupCamera();
         this.setupEnvironment();
-        this.createStardust();
         this.loadAssets();
         this.addEventListeners();
     }
@@ -121,41 +99,42 @@ class WebGLApp {
         this.scene.add(sunLight);
     }
 
-    createStardust() {
-        const particlesGeometry = new THREE.BufferGeometry();
-        const particlesCount = 10000;
-        const posArray = new Float32Array(particlesCount * 3);
-
-        for(let i = 0; i < particlesCount * 3; i++) {
-            posArray[i] = (Math.random() - 0.5) * (MONOLITH_SPACING * projects.length);
-        }
-
-        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-
-        const particlesMaterial = new THREE.PointsMaterial({
-            size: 0.05,
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0.5,
-            blending: THREE.AdditiveBlending
+    preloadVideos() {
+        const videoPromises = this.allVideos.map(video => {
+            return new Promise((resolve, reject) => {
+                video.addEventListener('canplaythrough', resolve, { once: true });
+                video.addEventListener('error', (e) => reject(`Error loading video: ${video.currentSrc}`), { once: true });
+            });
         });
-
-        this.stardust = new THREE.Points(particlesGeometry, particlesMaterial);
-        this.scene.add(this.stardust);
+        return Promise.all(videoPromises);
     }
 
-    loadAssets() {
-        const loadingManager = new THREE.LoadingManager(() => {
-            gsap.to(ui.loader, { opacity: 0, duration: 1.5, onComplete: () => {
-                ui.loader.style.display = 'none';
-                this.navigateTo(0, true);
-                this.animate();
-            }});
-        });
+    async loadAssets() {
+        const loadingManager = new THREE.LoadingManager();
         const textureLoader = new THREE.TextureLoader(loadingManager);
         const concreteTexture = textureLoader.load('concrete.jpg');
         
         this.createMonoliths(concreteTexture);
+
+        try {
+            await Promise.all([
+                new Promise(resolve => loadingManager.onLoad = resolve),
+                this.preloadVideos()
+            ]);
+
+            gsap.to(ui.loader, { opacity: 0, duration: 1.5, onComplete: () => {
+                ui.loader.style.display = 'none';
+                this.navigateTo(0, true);
+                this.animate();
+                setTimeout(() => {
+                    if (ui.scrollIndicator) ui.scrollIndicator.classList.add('is-visible');
+                }, 1500);
+            }});
+
+        } catch (error) {
+            console.error("Failed to load assets:", error);
+            document.getElementById('loader-status').textContent = 'ERROR LOADING ASSETS.';
+        }
     }
     
     createMonoliths(concreteTexture) {
@@ -168,6 +147,7 @@ class WebGLApp {
             video.loop = true; 
             video.playsInline = true;
             video.crossOrigin = 'anonymous';
+            video.preload = 'auto';
 
             const sourceWebm = document.createElement('source');
             sourceWebm.src = project.videoSrc.webm;
@@ -180,7 +160,8 @@ class WebGLApp {
             video.appendChild(sourceWebm);
             video.appendChild(sourceMp4);
 
-            video.load();
+            document.body.appendChild(video);
+            video.style.display = 'none';
             this.allVideos.push(video);
             
             const videoTexture = new THREE.VideoTexture(video);
@@ -204,29 +185,32 @@ class WebGLApp {
         });
     }
 
+    hideScrollIndicator() {
+        if (ui.scrollIndicator && ui.scrollIndicator.classList.contains('is-visible')) {
+            ui.scrollIndicator.classList.remove('is-visible');
+        }
+    }
+
     navigateTo(index, instant = false) {
         if (this.isAnimating || index === this.currentIndex || index < 0 || index >= projects.length) return;
+        if (!instant) this.hideScrollIndicator();
 
         this.isAnimating = true;
         const previousIndex = this.currentIndex;
         this.currentIndex = index;
         const targetMonolith = this.monoliths[this.currentIndex];
 
-        ui.info.classList.remove('is-interactive');
-        if (this.currentIndex === projects.length - 1) {
-            ui.info.classList.add('is-interactive');
-        }
-
         if (previousIndex !== -1 && this.monoliths[previousIndex].userData.video) {
             this.monoliths[previousIndex].userData.video.pause();
         }
-        targetMonolith.userData.video.currentTime = 0;
-        targetMonolith.userData.video.play().catch(e => console.error("Video play failed:", e));
+        const video = targetMonolith.userData.video;
+        video.currentTime = 0;
+        video.play().catch(e => console.error("Video play failed:", e));
 
         const updateUIContent = () => {
             const project = projects[this.currentIndex];
             ui.title.textContent = project.title;
-            ui.category.innerHTML = project.category;
+            ui.category.innerHTML = project.category.replace(/\n/g, '<br>');
             ui.current.textContent = String(this.currentIndex + 1).padStart(2, '0');
             ui.total.textContent = String(projects.length).padStart(2, '0');
         };
@@ -234,119 +218,63 @@ class WebGLApp {
         if (instant) {
             this.cameraGroup.position.z = targetMonolith.position.z;
             updateUIContent();
-            ui.info.style.opacity = 1;
-            ui.info.style.transform = 'translateY(0)';
+            ui.info.classList.add('is-visible');
             this.isAnimating = false;
             return;
         }
         
-        // --- AANGEPAST: GSAP TIMELINE VERSNELD ---
         const tl = gsap.timeline({ onComplete: () => { this.isAnimating = false; } });
-        tl.to(ui.info, { transform: 'translateY(20px)', opacity: 0, duration: 0.5, ease: 'power3.in' }, 0); // Was 0.8s
-        tl.to(this.cameraGroup.position, { z: targetMonolith.position.z, duration: 1.5, ease: 'power2.inOut' }, 0); // Was 2.5s
-        tl.call(updateUIContent, null, 0.75); // Was 1.25s
-        tl.to(ui.info, { transform: 'translateY(0)', opacity: 1, duration: 0.7, ease: 'power3.out' }, 0.8); // Was 1.0s en 1.5s
+        
+        // GEWIJZIGD: Snellere animatie voor UI
+        tl.to(ui.info, { transform: 'translateY(20px)', opacity: 0, duration: 0.6, ease: 'power4.in' }, 0);
+
+        // GEWIJZIGD: Snellere en soepelere camera-animatie
+        tl.to(this.cameraGroup.position, {
+            z: targetMonolith.position.z,
+            duration: 1.8,
+            ease: 'power4.inOut'
+        }, 0);
+        
+        tl.call(updateUIContent, null, 0.9); // UI update halverwege
+
+        // GEWIJZIGD: Snellere animatie voor UI
+        tl.to(ui.info, { transform: 'translateY(0)', opacity: 1, duration: 0.9, ease: 'power4.out' }, 0.9);
     }
 
     unlockVideos() {
         if (this.videosUnlocked) return;
-        this.allVideos.forEach(v => { v.play().then(() => v.pause()); });
+        this.allVideos.forEach(v => { v.play().then(() => v.pause()).catch(() => {}); });
         this.videosUnlocked = true;
     }
 
     animate() {
         requestAnimationFrame(() => this.animate());
-        const elapsedTime = this.clock.getElapsedTime();
-
-        if (this.stardust) {
-            this.stardust.rotation.y = elapsedTime * 0.01;
-        }
-
         if (this.currentIndex >= 0 && !this.isAnimating) {
             const currentMonolith = this.monoliths[this.currentIndex];
+            
             const parallaxX = this.mouse.x * 0.1;
             const parallaxY = -this.mouse.y * 0.1;
-            this.camera.position.x += (parallaxX - this.camera.position.x) * 0.05;
-            this.camera.position.y += (parallaxY - this.camera.position.y) * 0.05;
-            currentMonolith.rotation.y += ((-this.mouse.x * 0.05) - currentMonolith.rotation.y) * 0.05;
-            currentMonolith.rotation.x += ((-this.mouse.y * 0.05) - currentMonolith.rotation.x) * 0.05;
+
+            // GEWIJZIGD: Snellere 'lerp' voor soepelere, directere reactie
+            const lerpFactor = 0.08;
+            this.camera.position.x += (parallaxX - this.camera.position.x) * lerpFactor;
+            this.camera.position.y += (parallaxY - this.camera.position.y) * lerpFactor;
+
+            currentMonolith.rotation.y += ((-this.mouse.x * 0.05) - currentMonolith.rotation.y) * lerpFactor;
+            currentMonolith.rotation.x += ((-this.mouse.y * 0.05) - currentMonolith.rotation.x) * lerpFactor;
+            
             this.camera.lookAt(currentMonolith.position);
         }
-
         this.renderer.render(this.scene, this.camera);
     }
     
-    toggleConsole(forceState) {
-        this.isConsoleOpen = forceState !== undefined ? forceState : !this.isConsoleOpen;
-        if (this.isConsoleOpen) {
-            ui.console.container.classList.add('is-visible');
-            ui.console.input.focus();
-        } else {
-            ui.console.container.classList.remove('is-visible');
-            ui.console.input.blur();
-            ui.console.input.value = '';
-        }
-    }
-
-    processCommand() {
-        const command = ui.console.input.value.toLowerCase().trim();
-        const parts = command.split(' ');
-        const action = parts[0];
-        const arg = parts[1];
-
-        console.log(`Executing command: ${command}`);
-
-        switch(action) {
-            case 'help':
-                console.log('--- AVAILABLE COMMANDS ---');
-                console.log('home: Navigate to the first project.');
-                console.log('about: Navigate to the last project.');
-                console.log('goto [number]: Navigate to a specific project number (e.g., goto 3).');
-                console.log('list: Show a list of all project titles.');
-                break;
-            case 'list':
-                console.log('--- PROJECT LIST ---');
-                projects.forEach((p, i) => console.log(`${i + 1}: ${p.title}`));
-                break;
-            case 'home':
-                this.navigateTo(0);
-                this.toggleConsole(false);
-                break;
-            case 'about':
-                this.navigateTo(projects.length - 1);
-                this.toggleConsole(false);
-                break;
-            case 'goto':
-                const index = parseInt(arg, 10) - 1;
-                if (!isNaN(index) && index >= 0 && index < projects.length) {
-                    this.navigateTo(index);
-                    this.toggleConsole(false);
-                } else {
-                    console.error(`Invalid project number: ${arg}`);
-                }
-                break;
-            default:
-                console.warn(`Unknown command: ${action}`);
-        }
-
-        if (action !== 'help' && action !== 'list') {
-             ui.console.input.value = '';
-        }
-    }
-    
     addEventListeners() {
-        window.addEventListener('mousemove', this.handleMouseMove.bind(this));
-        if (window.DeviceOrientationEvent) {
-             window.addEventListener('deviceorientation', this.handleDeviceOrientation.bind(this));
-        }
         window.addEventListener('wheel', this.handleScroll.bind(this), { passive: false });
         let touchStartY = 0;
-        window.addEventListener('touchstart', (e) => { 
-            this.unlockVideos();
-            touchStartY = e.touches[0].clientY; 
-        }, { passive: true });
+        window.addEventListener('touchstart', (e) => { touchStartY = e.touches[0].clientY; }, { passive: true });
         window.addEventListener('touchend', (e) => {
-            if (this.isConsoleOpen) return;
+            e.preventDefault();
+            this.unlockVideos();
             const touchEndY = e.changedTouches[0].clientY;
             const deltaY = touchStartY - touchEndY;
             if (Math.abs(deltaY) > 50) { 
@@ -356,31 +284,19 @@ class WebGLApp {
                 this.lastScrollTime = now;
             }
         }, { passive: false });
+
+        window.addEventListener('mousemove', this.handleMouseMove.bind(this));
         window.addEventListener('resize', this.handleResize.bind(this));
         ui.menuHome.addEventListener('click', () => this.navigateTo(0));
         ui.menuAbout.addEventListener('click', () => this.navigateTo(projects.length - 1));
-        ui.console.openBtn.addEventListener('click', () => this.toggleConsole());
-        window.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 'p' && !this.isConsoleOpen) {
-                e.preventDefault();
-                this.toggleConsole(true);
-            } else if (e.key === 'Escape' && this.isConsoleOpen) {
-                this.toggleConsole(false);
-            }
-        });
-        ui.console.input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                this.processCommand();
-            }
-        });
     }
     
     handleScroll(e) {
-        if (this.isConsoleOpen) return;
         e.preventDefault();
         this.unlockVideos();
         const now = Date.now();
         if (this.isAnimating || now - this.lastScrollTime < SCROLL_COOLDOWN) return;
+        
         if (Math.abs(e.deltaY) > 5) {
             this.navigateTo(this.currentIndex + (e.deltaY > 0 ? 1 : -1));
             this.lastScrollTime = now;
@@ -388,17 +304,8 @@ class WebGLApp {
     }
     
     handleMouseMove(e) {
-        if (this.hasDeviceOrientation) return; 
         this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
         this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-    }
-    
-    handleDeviceOrientation(event) {
-        if (!this.hasDeviceOrientation) this.hasDeviceOrientation = true;
-        const gamma = event.gamma;
-        const beta = event.beta;
-        this.mouse.x = Math.max(-1, Math.min(1, gamma / 30));
-        this.mouse.y = Math.max(-1, Math.min(1, (beta - 45) / 30));
     }
 
     handleResize() {
