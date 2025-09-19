@@ -1,29 +1,28 @@
 // --- CONFIG & PROJECT DATA ---
 const MONOLITH_SPACING = 25;
 const CAMERA_DISTANCE = 10;
-// GEWIJZIGD: Snellere cooldown
-const SCROLL_COOLDOWN = 1800;
+// Snellere cooldown
+const SCROLL_COOLDOWN = 1200;
+
+// Knock-in video (1 centrale bron)
+const KNOCKIN_VIDEO_SRC = "knockin.mp4";
 
 const projects = [
     { 
         title: 'FLORIS VROEGH', 
-        category: 'VIDEOGRAPHER & WEB DESIGN HOBBYIST', 
-        videoSrc: { webm: 'https://images.guns.lol/JzuPZtDHoj10LAuJaF68FBDKjdrWn3BtIpbJsfygV75Bk.mp4', mp4: 'https://images.guns.lol/JzuPZtDHoj10LAuJaF68FBDKjdrWn3BtIpbJsfygV75Bk.mp4' }
+        category: 'VIDEOGRAPHER & WEB DESIGN HOBBYIST'
     },
     { 
         title: 'ALEC JUNGERIUS', 
-        category: 'WEB DESIGN', 
-        videoSrc: { webm: 'https://images.guns.lol/JzuPZtDHoj10LAuJaF68FBDKjdrWn3BtIpbJsfygV75Bk.mp4', mp4: 'https://images.guns.lol/JzuPZtDHoj10LAuJaF68FBDKjdrWn3BtIpbJsfygV75Bk.mp4' }
+        category: 'WEB DESIGN'
     },
     { 
         title: '3D RENDERS', 
-        category: 'MOTION DESIGN', 
-        videoSrc: { webm: 'https://images.guns.lol/JzuPZtDHoj10LAuJaF68FBDKjdrWn3BtIpbJsfygV75Bk.mp4', mp4: 'https://images.guns.lol/JzuPZtDHoj10LAuJaF68FBDKjdrWn3BtIpbJsfygV75Bk.mp4' }
+        category: 'MOTION DESIGN'
     },
     {
         title: 'ABOUT & CONTACT',
-        category: 'Een creatieve developer met een passie voor immersive web experiences. Laten we samen iets bouwen. \n\n FlorisVroegh@icloud.com',
-        videoSrc: { webm: 'https://images.guns.lol/JzuPZtDHoj10LAuJaF68FBDKjdrWn3BtIpbJsfygV75Bk.mp4', mp4: 'https://images.guns.lol/JzuPZtDHoj10LAuJaF68FBDKjdrWn3BtIpbJsfygV75Bk.mp4' }
+        category: 'Een creatieve developer met een passie voor immersive web experiences. Laten we samen iets bouwen. \n\n FlorisVroegh@icloud.com'
     }
 ];
 
@@ -51,7 +50,6 @@ class WebGLApp {
         });
         
         this.monoliths = [];
-        this.allVideos = [];
         this.mouse = new THREE.Vector2();
         this.clock = new THREE.Clock();
 
@@ -59,6 +57,10 @@ class WebGLApp {
         this.isAnimating = false;
         this.lastScrollTime = 0;
         this.videosUnlocked = false;
+
+        // shared video & texture placeholders
+        this.sharedVideo = null;
+        this.sharedVideoTexture = null;
 
         this.init();
     }
@@ -73,7 +75,7 @@ class WebGLApp {
 
     setupRenderer() {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // sneller, minder GPU
         this.renderer.shadowMap.enabled = true;
         this.renderer.outputEncoding = THREE.sRGBEncoding;
     }
@@ -87,45 +89,94 @@ class WebGLApp {
     }
 
     setupEnvironment() {
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.3);
         this.scene.add(ambientLight);
         this.scene.fog = new THREE.Fog(0x111111, 20, 100);
 
-        const sunLight = new THREE.DirectionalLight(0xffddaa, 1.5);
+        const sunLight = new THREE.DirectionalLight(0xffddaa, 1.2);
         sunLight.position.set(0, 30, -50);
         sunLight.castShadow = true;
         sunLight.shadow.mapSize.set(1024, 1024);
         this.scene.add(sunLight);
     }
 
+    // Make a single shared video element + VideoTexture (prevents multiple downloads)
+    createSharedVideo() {
+        const video = document.createElement('video');
+        video.muted = true;
+        video.loop = true;
+        video.playsInline = true;
+        video.crossOrigin = 'anonymous';
+        video.preload = 'metadata'; // laat alleen metadata laden snel
+        video.src = KNOCKIN_VIDEO_SRC;
+        // keep it in DOM but off-screen (safer than display:none for some platforms)
+        video.style.position = 'absolute';
+        video.style.left = '-9999px';
+        video.style.width = '1px';
+        video.style.height = '1px';
+        video.setAttribute('playsinline', '');
+        document.body.appendChild(video);
+
+        this.sharedVideo = video;
+        this.sharedVideoTexture = new THREE.VideoTexture(this.sharedVideo);
+        this.sharedVideoTexture.encoding = THREE.sRGBEncoding;
+        // optional: lower filtering to improve perf on lower GPUs
+        this.sharedVideoTexture.minFilter = THREE.LinearFilter;
+        this.sharedVideoTexture.magFilter = THREE.LinearFilter;
+    }
+
+    // Preload with fallback: resolve on loadeddata/canplay or after timeout
     preloadVideos() {
-        const videoPromises = this.allVideos.map(video => {
-            return new Promise((resolve, reject) => {
-                video.addEventListener('canplaythrough', resolve, { once: true });
-                video.addEventListener('error', (e) => reject(`Error loading video: ${video.currentSrc}`), { once: true });
+        const videos = this.sharedVideo ? [this.sharedVideo] : [];
+        const promises = videos.map(video => {
+            return new Promise((resolve) => {
+                let settled = false;
+                const cleanup = () => {
+                    video.removeEventListener('loadeddata', onLoaded);
+                    video.removeEventListener('canplay', onLoaded);
+                    video.removeEventListener('error', onError);
+                    clearTimeout(timer);
+                };
+                const onLoaded = () => { if (!settled) { settled = true; cleanup(); resolve({ ok: true }); } };
+                const onError = (e) => { if (!settled) { settled = true; cleanup(); resolve({ ok: false, error: e }); } };
+                const timer = setTimeout(() => {
+                    if (!settled) { settled = true; cleanup(); resolve({ ok: false, timeout: true }); }
+                }, 4000); // 4s fallback
+
+                video.addEventListener('loadeddata', onLoaded, { once: true });
+                video.addEventListener('canplay', onLoaded, { once: true });
+                video.addEventListener('error', onError, { once: true });
+
+                // try to kick off loading
+                try { video.load(); } catch (err) { /* ignore */ }
             });
         });
-        return Promise.all(videoPromises);
+
+        // don't fail the whole startup if video fails — resolve anyway
+        return Promise.all(promises).then(() => {});
     }
 
     async loadAssets() {
         const loadingManager = new THREE.LoadingManager();
         const textureLoader = new THREE.TextureLoader(loadingManager);
+        // concrete.jpg must exist — replace or ensure path is correct
         const concreteTexture = textureLoader.load('concrete.jpg');
-        
+
+        // create shared video before creating monoliths so texture is available
+        this.createSharedVideo();
+
         this.createMonoliths(concreteTexture);
 
         try {
-            await Promise.all([
-                new Promise(resolve => loadingManager.onLoad = resolve),
-                this.preloadVideos()
-            ]);
+            const managerPromise = new Promise(resolve => loadingManager.onLoad = resolve);
+            // wait for both textures (loadingManager) and the video preloader (with fallback)
+            await Promise.all([managerPromise, this.preloadVideos()]);
 
             this.navigateTo(0, true);
             this.animate();
             setTimeout(() => {
                 if (ui.scrollIndicator) ui.scrollIndicator.classList.add('is-visible');
-            }, 1500);
+            }, 800);
 
         } catch (error) {
             console.error("Failed to load assets:", error);
@@ -137,31 +188,8 @@ class WebGLApp {
         const concreteMaterial = new THREE.MeshStandardMaterial({ map: concreteTexture, roughness: 0.8, metalness: 0.2 });
 
         projects.forEach((project, i) => {
-            const video = document.createElement('video');
-            video.muted = true; 
-            video.loop = true; 
-            video.playsInline = true;
-            video.crossOrigin = 'anonymous';
-            video.preload = 'auto';
-
-            const sourceWebm = document.createElement('source');
-            sourceWebm.src = project.videoSrc.webm;
-            sourceWebm.type = 'video/webm';
-
-            const sourceMp4 = document.createElement('source');
-            sourceMp4.src = project.videoSrc.mp4;
-            sourceMp4.type = 'video/mp4';
-
-            video.appendChild(sourceWebm);
-            video.appendChild(sourceMp4);
-
-            document.body.appendChild(video);
-            video.style.display = 'none';
-            this.allVideos.push(video);
-            
-            const videoTexture = new THREE.VideoTexture(video);
-            videoTexture.encoding = THREE.sRGBEncoding;
-            
+            // reuse shared video texture for all monoliths
+            const videoTexture = this.sharedVideoTexture;
             const frontMaterial = new THREE.MeshBasicMaterial({ map: videoTexture });
             
             const monolith = new THREE.Mesh(
@@ -173,7 +201,8 @@ class WebGLApp {
             monolith.rotation.set(0, -0.2, 0.05);
             monolith.castShadow = true;
             monolith.receiveShadow = true;
-            monolith.userData.video = video;
+            // reference to shared video; it's the single source of truth
+            monolith.userData.video = this.sharedVideo;
 
             this.scene.add(monolith);
             this.monoliths.push(monolith);
@@ -195,12 +224,18 @@ class WebGLApp {
         this.currentIndex = index;
         const targetMonolith = this.monoliths[this.currentIndex];
 
-        if (previousIndex !== -1 && this.monoliths[previousIndex].userData.video) {
-            this.monoliths[previousIndex].userData.video.pause();
-        }
+        // since we use a shared video, just reset to start and play
         const video = targetMonolith.userData.video;
-        video.currentTime = 0;
-        video.play().catch(e => console.error("Video play failed:", e));
+        if (video) {
+            try {
+                video.currentTime = 0;
+            } catch (e) { /* some browsers may throw if not ready */ }
+            video.muted = true;
+            video.play().catch(e => {
+                // autoplay can still fail in some cases — log for debug
+                console.warn("Video play failed (autoplay blocked?):", e);
+            });
+        }
 
         const updateUIContent = () => {
             const project = projects[this.currentIndex];
@@ -220,25 +255,29 @@ class WebGLApp {
         
         const tl = gsap.timeline({ onComplete: () => { this.isAnimating = false; } });
         
-        // GEWIJZIGD: Snellere animatie voor UI
-        tl.to(ui.info, { transform: 'translateY(20px)', opacity: 0, duration: 0.6, ease: 'power4.in' }, 0);
+        // Snappier UI animatie
+        tl.to(ui.info, { transform: 'translateY(20px)', opacity: 0, duration: 0.3, ease: 'power4.in' }, 0);
 
-        // GEWIJZIGD: Snellere en soepelere camera-animatie
+        // Snellere camera-animatie
         tl.to(this.cameraGroup.position, {
             z: targetMonolith.position.z,
-            duration: 1.8,
+            duration: 0.9,
             ease: 'power4.inOut'
         }, 0);
         
-        tl.call(updateUIContent, null, 0.9); // UI update halverwege
+        tl.call(updateUIContent, null, 0.45); // UI update halverwege
 
-        // GEWIJZIGD: Snellere animatie voor UI
-        tl.to(ui.info, { transform: 'translateY(0)', opacity: 1, duration: 0.9, ease: 'power4.out' }, 0.9);
+        // Snelle fade-in
+        tl.to(ui.info, { transform: 'translateY(0)', opacity: 1, duration: 0.5, ease: 'power4.out' }, 0.45);
     }
 
     unlockVideos() {
         if (this.videosUnlocked) return;
-        this.allVideos.forEach(v => { v.play().then(() => v.pause()).catch(() => {}); });
+        const v = this.sharedVideo;
+        if (!v) { this.videosUnlocked = true; return; }
+        // quick attempt to unlock autoplay restrictions
+        v.muted = true;
+        v.play().then(() => v.pause()).catch(() => {});
         this.videosUnlocked = true;
     }
 
@@ -250,8 +289,8 @@ class WebGLApp {
             const parallaxX = this.mouse.x * 0.1;
             const parallaxY = -this.mouse.y * 0.1;
 
-            // GEWIJZIGD: Snellere 'lerp' voor soepelere, directere reactie
-            const lerpFactor = 0.08;
+            // Snellere reactie
+            const lerpFactor = 0.15;
             this.camera.position.x += (parallaxX - this.camera.position.x) * lerpFactor;
             this.camera.position.y += (parallaxY - this.camera.position.y) * lerpFactor;
 
@@ -307,7 +346,7 @@ class WebGLApp {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     }
 }
 
