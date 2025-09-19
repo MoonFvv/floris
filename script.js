@@ -1,41 +1,34 @@
-// --- CONFIG & PROJECT DATA ---
+// --- CONFIG ---
 const MONOLITH_SPACING = 25;
 const CAMERA_DISTANCE = 10;
-// Snellere cooldown
-const SCROLL_COOLDOWN = 1200;
-
-// Knock-in video (1 centrale bron)
+const SCROLL_COOLDOWN = 1000; 
 const KNOCKIN_VIDEO_SRC = "knockin.mp4";
 
+// Projecten
 const projects = [
     { 
         title: 'FLORIS VROEGH', 
         category: 'VIDEOGRAPHER & WEB DESIGN HOBBYIST',
-        description: 'Een combinatie van filmische visie en digitale creatie. Altijd zoekend naar nieuwe manieren om verhalen te vangen.',
-        videoSrc: { mp4: 'knockin.mp4' }
+        videoSrc: { mp4: KNOCKIN_VIDEO_SRC }
     },
     { 
         title: 'ALEC JUNGERIUS', 
         category: 'WEB DESIGN',
-        description: 'Minimalistische en functionele webdesigns die impact maken door eenvoud en strakke interacties.',
-        videoSrc: { mp4: 'knockin.mp4' }
+        videoSrc: { mp4: KNOCKIN_VIDEO_SRC }
     },
     { 
         title: '3D RENDERS', 
         category: 'MOTION DESIGN',
-        description: 'Fotorealistische visuals en abstracte 3D-experimenten. Een playground voor motion & form.',
-        videoSrc: { mp4: 'knockin.mp4' }
+        videoSrc: { mp4: KNOCKIN_VIDEO_SRC }
     },
     {
         title: 'ABOUT & CONTACT',
-        category: 'Een creatieve developer met een passie voor immersive web experiences. Laten we samen iets bouwen. \n\n FlorisVroegh@icloud.com',
-        description: 'Van concept tot code – altijd met focus op sfeer, interactie en ervaring.',
-        videoSrc: { mp4: 'knockin.mp4' }
+        category: 'Een creatieve developer met een passie voor immersive web experiences.\n\nFlorisVroegh@icloud.com',
+        videoSrc: { mp4: KNOCKIN_VIDEO_SRC }
     }
 ];
 
-
-// --- UI ELEMENTEN ---
+// --- UI ---
 const ui = {
     title: document.getElementById('project-title'),
     category: document.getElementById('project-category'),
@@ -45,13 +38,14 @@ const ui = {
     menuHome: document.getElementById('menu-home'),
     menuAbout: document.getElementById('menu-about'),
     scrollIndicator: document.getElementById('scroll-indicator')
-    
 };
 
 class WebGLApp {
     constructor() {
         this.scene = new THREE.Scene();
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.camera = new THREE.PerspectiveCamera(
+            75, window.innerWidth / window.innerHeight, 0.1, 1000
+        );
         this.cameraGroup = new THREE.Group();
         this.renderer = new THREE.WebGLRenderer({
             canvas: document.getElementById('webgl-canvas'),
@@ -60,17 +54,12 @@ class WebGLApp {
         });
         
         this.monoliths = [];
+        this.allVideos = [];
         this.mouse = new THREE.Vector2();
-        this.clock = new THREE.Clock();
-
         this.currentIndex = -1;
         this.isAnimating = false;
         this.lastScrollTime = 0;
         this.videosUnlocked = false;
-
-        // shared video & texture placeholders
-        this.sharedVideo = null;
-        this.sharedVideoTexture = null;
 
         this.init();
     }
@@ -85,7 +74,7 @@ class WebGLApp {
 
     setupRenderer() {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // sneller, minder GPU
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
         this.renderer.shadowMap.enabled = true;
         this.renderer.outputEncoding = THREE.sRGBEncoding;
     }
@@ -99,272 +88,163 @@ class WebGLApp {
     }
 
     setupEnvironment() {
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1.3);
-        this.scene.add(ambientLight);
+        const ambient = new THREE.AmbientLight(0xffffff, 1.3);
+        this.scene.add(ambient);
+
+        const sun = new THREE.DirectionalLight(0xffddaa, 1.1);
+        sun.position.set(0, 20, -40);
+        this.scene.add(sun);
+
         this.scene.fog = new THREE.Fog(0x111111, 20, 100);
-
-        const sunLight = new THREE.DirectionalLight(0xffddaa, 1.2);
-        sunLight.position.set(0, 30, -50);
-        sunLight.castShadow = true;
-        sunLight.shadow.mapSize.set(1024, 1024);
-        this.scene.add(sunLight);
     }
 
-    // Make a single shared video element + VideoTexture (prevents multiple downloads)
-    createSharedVideo() {
-        const video = document.createElement('video');
-        video.muted = true;
-        video.loop = true;
-        video.playsInline = true;
-        video.crossOrigin = 'anonymous';
-        video.preload = 'metadata'; // laat alleen metadata laden snel
-        video.src = KNOCKIN_VIDEO_SRC;
-        // keep it in DOM but off-screen (safer than display:none for some platforms)
-        video.style.position = 'absolute';
-        video.style.left = '-9999px';
-        video.style.width = '1px';
-        video.style.height = '1px';
-        video.setAttribute('playsinline', '');
-        document.body.appendChild(video);
+    loadAssets() {
+        const texLoader = new THREE.TextureLoader();
+        const concrete = texLoader.load('concrete.jpg');
+        this.createMonoliths(concrete);
 
-        this.sharedVideo = video;
-        this.sharedVideoTexture = new THREE.VideoTexture(this.sharedVideo);
-        this.sharedVideoTexture.encoding = THREE.sRGBEncoding;
-        // optional: lower filtering to improve perf on lower GPUs
-        this.sharedVideoTexture.minFilter = THREE.LinearFilter;
-        this.sharedVideoTexture.magFilter = THREE.LinearFilter;
+        this.navigateTo(0, true);
+        this.animate();
+
+        setTimeout(() => {
+            if (ui.scrollIndicator) ui.scrollIndicator.classList.add('is-visible');
+        }, 1000);
     }
 
-    // Preload with fallback: resolve on loadeddata/canplay or after timeout
-    preloadVideos() {
-        const videos = this.sharedVideo ? [this.sharedVideo] : [];
-        const promises = videos.map(video => {
-            return new Promise((resolve) => {
-                let settled = false;
-                const cleanup = () => {
-                    video.removeEventListener('loadeddata', onLoaded);
-                    video.removeEventListener('canplay', onLoaded);
-                    video.removeEventListener('error', onError);
-                    clearTimeout(timer);
-                };
-                const onLoaded = () => { if (!settled) { settled = true; cleanup(); resolve({ ok: true }); } };
-                const onError = (e) => { if (!settled) { settled = true; cleanup(); resolve({ ok: false, error: e }); } };
-                const timer = setTimeout(() => {
-                    if (!settled) { settled = true; cleanup(); resolve({ ok: false, timeout: true }); }
-                }, 4000); // 4s fallback
-
-                video.addEventListener('loadeddata', onLoaded, { once: true });
-                video.addEventListener('canplay', onLoaded, { once: true });
-                video.addEventListener('error', onError, { once: true });
-
-                // try to kick off loading
-                try { video.load(); } catch (err) { /* ignore */ }
-            });
-        });
-
-        // don't fail the whole startup if video fails — resolve anyway
-        return Promise.all(promises).then(() => {});
-    }
-
-    async loadAssets() {
-        const loadingManager = new THREE.LoadingManager();
-        const textureLoader = new THREE.TextureLoader(loadingManager);
-        // concrete.jpg must exist — replace or ensure path is correct
-        const concreteTexture = textureLoader.load('concrete.jpg');
-
-        // create shared video before creating monoliths so texture is available
-        this.createSharedVideo();
-
-        this.createMonoliths(concreteTexture);
-
-        try {
-            const managerPromise = new Promise(resolve => loadingManager.onLoad = resolve);
-            // wait for both textures (loadingManager) and the video preloader (with fallback)
-            await Promise.all([managerPromise, this.preloadVideos()]);
-
-            this.navigateTo(0, true);
-            this.animate();
-            setTimeout(() => {
-                if (ui.scrollIndicator) ui.scrollIndicator.classList.add('is-visible');
-            }, 800);
-
-        } catch (error) {
-            console.error("Failed to load assets:", error);
-        }
-    }
-    
     createMonoliths(concreteTexture) {
-        const size = { w: 20, h: 11.25, d: 0.9 };
-        const concreteMaterial = new THREE.MeshStandardMaterial({ map: concreteTexture, roughness: 0.8, metalness: 0.2 });
+        const size = { w: 16, h: 9, d: 0.9 }; // kleiner voor mobile performance
+        const sideMat = new THREE.MeshStandardMaterial({ map: concreteTexture, roughness: 0.8 });
 
         projects.forEach((project, i) => {
-            // reuse shared video texture for all monoliths
-            const videoTexture = this.sharedVideoTexture;
-            const frontMaterial = new THREE.MeshBasicMaterial({ map: videoTexture });
-            
+            const video = document.createElement('video');
+            video.muted = true;
+            video.loop = true;
+            video.playsInline = true;
+            video.crossOrigin = 'anonymous';
+            video.preload = 'metadata';
+
+            const src = document.createElement('source');
+            src.src = project.videoSrc.mp4;
+            src.type = "video/mp4";
+            video.appendChild(src);
+
+            document.body.appendChild(video);
+            video.style.display = "none";
+            this.allVideos.push(video);
+
+            const videoTex = new THREE.VideoTexture(video);
+            videoTex.encoding = THREE.sRGBEncoding;
+
+            const frontMat = new THREE.MeshBasicMaterial({ map: videoTex });
             const monolith = new THREE.Mesh(
                 new THREE.BoxGeometry(size.w, size.h, size.d),
-                [concreteMaterial, concreteMaterial, concreteMaterial, concreteMaterial, frontMaterial, concreteMaterial]
+                [sideMat, sideMat, sideMat, sideMat, frontMat, sideMat]
             );
 
             monolith.position.set(0, (size.h / 2) + 0.5, -i * MONOLITH_SPACING);
             monolith.rotation.set(0, -0.2, 0.05);
-            monolith.castShadow = true;
-            monolith.receiveShadow = true;
-            // reference to shared video; it's the single source of truth
-            monolith.userData.video = this.sharedVideo;
-
             this.scene.add(monolith);
+            monolith.userData.video = video;
             this.monoliths.push(monolith);
         });
     }
 
-    hideScrollIndicator() {
-        if (ui.scrollIndicator && ui.scrollIndicator.classList.contains('is-visible')) {
-            ui.scrollIndicator.classList.remove('is-visible');
-        }
-    }
-
     navigateTo(index, instant = false) {
         if (this.isAnimating || index === this.currentIndex || index < 0 || index >= projects.length) return;
-        if (!instant) this.hideScrollIndicator();
+        if (!instant && ui.scrollIndicator) ui.scrollIndicator.classList.remove('is-visible');
 
         this.isAnimating = true;
-        const previousIndex = this.currentIndex;
+        const prevIndex = this.currentIndex;
         this.currentIndex = index;
-        const targetMonolith = this.monoliths[this.currentIndex];
+        const target = this.monoliths[this.currentIndex];
 
-        // since we use a shared video, just reset to start and play
-        const video = targetMonolith.userData.video;
-        if (video) {
-            try {
-                video.currentTime = 0;
-            } catch (e) { /* some browsers may throw if not ready */ }
-            video.muted = true;
-            video.play().catch(e => {
-                // autoplay can still fail in some cases — log for debug
-                console.warn("Video play failed (autoplay blocked?):", e);
-            });
-        }
+        if (prevIndex !== -1) this.monoliths[prevIndex].userData.video.pause();
+        const vid = target.userData.video;
+        vid.currentTime = 0;
+        vid.play().catch(()=>{});
 
-const updateUIContent = () => {
-    const project = projects[this.currentIndex];
-    ui.title.textContent = project.title;
-    ui.category.innerHTML = project.category.replace(/\n/g, '<br>');
-    ui.current.textContent = String(this.currentIndex + 1).padStart(2, '0');
-    ui.total.textContent = String(projects.length).padStart(2, '0');
-    
-    if (ui.description) {
-        ui.description.textContent = project.description;
-    }
-};
+        const updateUI = () => {
+            const p = projects[this.currentIndex];
+            ui.title.textContent = p.title;
+            ui.category.innerHTML = p.category.replace(/\n/g, '<br>');
+            ui.current.textContent = String(this.currentIndex + 1).padStart(2, '0');
+            ui.total.textContent = String(projects.length).padStart(2, '0');
+        };
 
-        
         if (instant) {
-            this.cameraGroup.position.z = targetMonolith.position.z;
-            updateUIContent();
+            this.cameraGroup.position.z = target.position.z;
+            updateUI();
             ui.info.classList.add('is-visible');
             this.isAnimating = false;
             return;
         }
-        
+
         const tl = gsap.timeline({ onComplete: () => { this.isAnimating = false; } });
-        
-        // Snappier UI animatie
-        tl.to(ui.info, { transform: 'translateY(20px)', opacity: 0, duration: 0.3, ease: 'power4.in' }, 0);
-
-        // Snellere camera-animatie
-        tl.to(this.cameraGroup.position, {
-            z: targetMonolith.position.z,
-            duration: 0.9,
-            ease: 'power4.inOut'
-        }, 0);
-        
-        tl.call(updateUIContent, null, 0.45); // UI update halverwege
-
-        // Snelle fade-in
-        tl.to(ui.info, { transform: 'translateY(0)', opacity: 1, duration: 0.5, ease: 'power4.out' }, 0.45);
+        tl.to(ui.info, { opacity: 0, duration: 0.25, ease: 'power1.in' }, 0);
+        tl.to(this.cameraGroup.position, { z: target.position.z, duration: 0.8, ease: 'power2.inOut' }, 0);
+        tl.call(updateUI, null, 0.4);
+        tl.to(ui.info, { opacity: 1, duration: 0.4, ease: 'power2.out' }, 0.4);
     }
 
     unlockVideos() {
         if (this.videosUnlocked) return;
-        const v = this.sharedVideo;
-        if (!v) { this.videosUnlocked = true; return; }
-        // quick attempt to unlock autoplay restrictions
-        v.muted = true;
-        v.play().then(() => v.pause()).catch(() => {});
+        this.allVideos.forEach(v => v.play().then(()=>v.pause()).catch(()=>{}));
         this.videosUnlocked = true;
     }
 
     animate() {
         requestAnimationFrame(() => this.animate());
         if (this.currentIndex >= 0 && !this.isAnimating) {
-            const currentMonolith = this.monoliths[this.currentIndex];
-            
+            const current = this.monoliths[this.currentIndex];
             const parallaxX = this.mouse.x * 0.1;
             const parallaxY = -this.mouse.y * 0.1;
-
-            // Snellere reactie
-            const lerpFactor = 0.15;
-            this.camera.position.x += (parallaxX - this.camera.position.x) * lerpFactor;
-            this.camera.position.y += (parallaxY - this.camera.position.y) * lerpFactor;
-
-            currentMonolith.rotation.y += ((-this.mouse.x * 0.05) - currentMonolith.rotation.y) * lerpFactor;
-            currentMonolith.rotation.x += ((-this.mouse.y * 0.05) - currentMonolith.rotation.x) * lerpFactor;
-            
-            this.camera.lookAt(currentMonolith.position);
+            this.camera.position.x += (parallaxX - this.camera.position.x) * 0.1;
+            this.camera.position.y += (parallaxY - this.camera.position.y) * 0.1;
+            this.camera.lookAt(current.position);
         }
         this.renderer.render(this.scene, this.camera);
     }
-    
+
     addEventListeners() {
-        window.addEventListener('wheel', this.handleScroll.bind(this), { passive: false });
-        let touchStartY = 0;
-        window.addEventListener('touchstart', (e) => { touchStartY = e.touches[0].clientY; }, { passive: true });
-        window.addEventListener('touchend', (e) => {
+        // scroll
+        window.addEventListener('wheel', e => {
             e.preventDefault();
             this.unlockVideos();
-            const touchEndY = e.changedTouches[0].clientY;
-            const deltaY = touchStartY - touchEndY;
-            if (Math.abs(deltaY) > 50) { 
-                const now = Date.now();
-                if (this.isAnimating || now - this.lastScrollTime < SCROLL_COOLDOWN) return;
-                this.navigateTo(this.currentIndex + (deltaY > 0 ? 1 : -1));
-                this.lastScrollTime = now;
-            }
+            const now = Date.now();
+            if (this.isAnimating || now - this.lastScrollTime < SCROLL_COOLDOWN) return;
+            this.navigateTo(this.currentIndex + (e.deltaY > 0 ? 1 : -1));
+            this.lastScrollTime = now;
         }, { passive: false });
 
-        window.addEventListener('mousemove', this.handleMouseMove.bind(this));
-        window.addEventListener('resize', this.handleResize.bind(this));
+        // swipe mobile
+        let startY = 0;
+        window.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+        window.addEventListener('touchend', e => {
+            this.unlockVideos();
+            const delta = startY - e.changedTouches[0].clientY;
+            if (Math.abs(delta) > 40) {
+                const now = Date.now();
+                if (this.isAnimating || now - this.lastScrollTime < SCROLL_COOLDOWN) return;
+                this.navigateTo(this.currentIndex + (delta > 0 ? 1 : -1));
+                this.lastScrollTime = now;
+            }
+        });
+
+        // mouse
+        window.addEventListener('mousemove', e => {
+            this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        window.addEventListener('resize', () => {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
         ui.menuHome.addEventListener('click', () => this.navigateTo(0));
         ui.menuAbout.addEventListener('click', () => this.navigateTo(projects.length - 1));
     }
-    
-    handleScroll(e) {
-        e.preventDefault();
-        this.unlockVideos();
-        const now = Date.now();
-        if (this.isAnimating || now - this.lastScrollTime < SCROLL_COOLDOWN) return;
-        
-        if (Math.abs(e.deltaY) > 5) {
-            this.navigateTo(this.currentIndex + (e.deltaY > 0 ? 1 : -1));
-            this.lastScrollTime = now;
-        }
-    }
-    
-    handleMouseMove(e) {
-        this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-        this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-    }
-
-    handleResize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    }
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-    new WebGLApp();
-});
+window.addEventListener('DOMContentLoaded', () => new WebGLApp());
