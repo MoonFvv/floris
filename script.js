@@ -10,21 +10,30 @@ const KNOCKIN_VIDEO_SRC = "knockin.mp4";
 const projects = [
     { 
         title: 'FLORIS VROEGH', 
-        category: 'VIDEOGRAPHER & WEB DESIGN HOBBYIST'
+        category: 'VIDEOGRAPHER & WEB DESIGN HOBBYIST',
+        description: 'Een combinatie van filmische visie en digitale creatie. Altijd zoekend naar nieuwe manieren om verhalen te vangen.',
+        videoSrc: { mp4: 'knockin.mp4' }
     },
     { 
         title: 'ALEC JUNGERIUS', 
-        category: 'WEB DESIGN'
+        category: 'WEB DESIGN',
+        description: 'Minimalistische en functionele webdesigns die impact maken door eenvoud en strakke interacties.',
+        videoSrc: { mp4: 'knockin.mp4' }
     },
     { 
         title: '3D RENDERS', 
-        category: 'MOTION DESIGN'
+        category: 'MOTION DESIGN',
+        description: 'Fotorealistische visuals en abstracte 3D-experimenten. Een playground voor motion & form.',
+        videoSrc: { mp4: 'knockin.mp4' }
     },
     {
         title: 'ABOUT & CONTACT',
-        category: 'Een creatieve developer met een passie voor immersive web experiences. Laten we samen iets bouwen. \n\n FlorisVroegh@icloud.com'
+        category: 'Een creatieve developer met een passie voor immersive web experiences. Laten we samen iets bouwen. \n\n FlorisVroegh@icloud.com',
+        description: 'Van concept tot code – altijd met focus op sfeer, interactie en ervaring.',
+        videoSrc: { mp4: 'knockin.mp4' }
     }
 ];
+
 
 // --- UI ELEMENTEN ---
 const ui = {
@@ -36,6 +45,7 @@ const ui = {
     menuHome: document.getElementById('menu-home'),
     menuAbout: document.getElementById('menu-about'),
     scrollIndicator: document.getElementById('scroll-indicator')
+    
 };
 
 class WebGLApp {
@@ -237,13 +247,18 @@ class WebGLApp {
             });
         }
 
-        const updateUIContent = () => {
-            const project = projects[this.currentIndex];
-            ui.title.textContent = project.title;
-            ui.category.innerHTML = project.category.replace(/\n/g, '<br>');
-            ui.current.textContent = String(this.currentIndex + 1).padStart(2, '0');
-            ui.total.textContent = String(projects.length).padStart(2, '0');
-        };
+const updateUIContent = () => {
+    const project = projects[this.currentIndex];
+    ui.title.textContent = project.title;
+    ui.category.innerHTML = project.category.replace(/\n/g, '<br>');
+    ui.current.textContent = String(this.currentIndex + 1).padStart(2, '0');
+    ui.total.textContent = String(projects.length).padStart(2, '0');
+    
+    if (ui.description) {
+        ui.description.textContent = project.description;
+    }
+};
+
         
         if (instant) {
             this.cameraGroup.position.z = targetMonolith.position.z;

@@ -161,3 +161,11 @@ html, body {
         font-size: 0.9rem;
     }
 }
+#project-description {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #ccc;
+  max-width: 600px;
+  margin-top: 1rem;
+  opacity: 0.85;
+}
