@@ -3,18 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aqueous</title>
+    <title>Floris Vroegh // Portfolio</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@700&family=Inter:wght@400;900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <video id="background-video" src="https://cdn.pixabay.com/video/2022/09/23/130186-753120150_large.mp4" autoplay muted loop crossOrigin="anonymous"></video>
-    <div id="webgl-container"></div>
-    <nav>
-        <a href="#">Werk</a>
-        <a href="#">Over</a>
-        <a href="#">Contact</a>
-    </nav>
+
+    <canvas id="webgl-canvas"></canvas>
+
+    <div class="ui-overlay">
+        <!-- Info staat linksboven -->
+        <div class="project-info">
+            <h1 id="project-title"></h1>
+            <p id="project-category"></p>
+        </div>
+        
+        <!-- Menu staat rechtsboven -->
+        <div class="menu-container">
+            <button id="menu-home">[ HOME ]</button>
+            <button id="menu-about">[ ABOUT ]</button>
+        </div>
+
+        <!-- Teller staat rechtsonder -->
+        <div class="project-counter">
+            <span id="current-project">00</span> / <span id="total-projects">00</span>
+        </div>
+
+        <!-- NIEUW: Scroll animatie voor nieuwe bezoekers -->
+        <div id="scroll-indicator" class="scroll-indicator">
+            <span>SCROLL / SWIPE</span>
+        </div>
+    </div>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.3/gsap.min.js"></script>
     <script src="script.js"></script>
+
 </body>
 </html>
